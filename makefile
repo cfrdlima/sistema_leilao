@@ -1,12 +1,29 @@
+# Compilador e flags
 CC = gcc
-CFLAGS = -Iheaders -Wall
-SRC = src/server.c main.c
-BIN = server
+CFLAGS = -Wall -Iheaders
 
-all: $(BIN)
+# Fontes
+SRC_DIR = src
+HEADERS_DIR = headers
 
-$(BIN): $(SRC)
-	$(CC) $(CFLAGS) -o $(BIN) $(SRC)
+SERVER_SRC = main_server.c $(SRC_DIR)/server.c
+CLIENT_SRC = main_client.c $(SRC_DIR)/client.c
 
+# Binários
+SERVER_BIN = server
+CLIENT_BIN = cliente
+
+# Alvo padrão
+all: $(SERVER_BIN) $(CLIENT_BIN)
+
+# Compilar servidor
+$(SERVER_BIN): $(SERVER_SRC)
+	$(CC) $(CFLAGS) -o $(SERVER_BIN) $(SERVER_SRC)
+
+# Compilar cliente
+$(CLIENT_BIN): $(CLIENT_SRC)
+	$(CC) $(CFLAGS) -o $(CLIENT_BIN) $(CLIENT_SRC)
+
+# Limpar binários
 clean:
-	rm -f $(BIN)
+	rm -f $(SERVER_BIN) $(CLIENT_BIN)
