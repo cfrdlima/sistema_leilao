@@ -142,16 +142,6 @@ void tratar_conexoes(int servidor_fd)
 
             printf("Novo cliente conectado: socket %d\n", novo_socket);
 
-            // Enviar mensagem de boas-vindas
-            char boas_vindas[] =
-                "Bem-vindo ao sistema de leilão!\n"
-                "Comandos disponíveis:\n"
-                "  - LOGIN <nome> <senha>\n"
-                "  - INFO\n"
-                "  - LOGOUT\n"
-                "  - ENTRAR_LEILAO\n\n";
-            send(novo_socket, boas_vindas, strlen(boas_vindas), 0);
-
             // Adicionar cliente à lista
             for (int i = 0; i < MAX_CLIENTES; i++)
             {
@@ -249,8 +239,7 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
         {
             if (adicionar_participante(usuario, cliente_fd))
             {
-                send(cliente_fd, "Você entrou no leilão.\n", 24, 0);
-
+                send(cliente_fd, "Você entrou no leilão, minimo de 2 participantes para iniciar.\n", 74, 0);
                 if (total_participantes() >= 2)
                 {
                     enviar_inicio_leilao();

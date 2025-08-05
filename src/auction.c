@@ -7,9 +7,11 @@
 */
 
 #include "../headers/auction.h"
+
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/socket.h>
 
 static int participantes_fd[MAX_PARTICIPANTES];
 static char participantes_nome[MAX_PARTICIPANTES][50];
