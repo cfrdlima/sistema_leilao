@@ -34,6 +34,7 @@ int clientes[MAX_CLIENTES] = {0};
  */
 void iniciar_servidor()
 {
+    inicializar_usuarios();
     int servidor_fd;
     struct sockaddr_in endereco;
 
@@ -133,7 +134,16 @@ void tratar_conexoes(int servidor_fd)
 
             printf("Novo cliente conectado: socket %d\n", novo_socket);
 
-            // Adicionar cliente ao array
+            // Enviar mensagem de boas-vindas
+            char boas_vindas[] =
+                "Bem-vindo ao sistema de leilão!\n"
+                "Comandos disponíveis:\n"
+                "  - LOGIN <nome> <senha>\n"
+                "  - INFO\n"
+                "  - LOGOUT\n\n";
+            send(novo_socket, boas_vindas, strlen(boas_vindas), 0);
+
+            // Adicionar cliente à lista
             for (int i = 0; i < MAX_CLIENTES; i++)
             {
                 if (clientes[i] == 0)
@@ -154,6 +164,7 @@ void tratar_conexoes(int servidor_fd)
                 if (valread == 0)
                 {
                     printf("Cliente %d desconectado\n", sd);
+                    registrar_logout(sd);
                     close(sd);
                     clientes[i] = 0;
                 }
@@ -188,12 +199,11 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
     else if (strncmp(mensagem, "LOGIN ", 6) == 0)
     {
         char nome[50], senha[50];
-
-        // Separar nome e senha
         if (sscanf(mensagem + 6, "%s %s", nome, senha) == 2)
         {
             if (autenticar_usuario(nome, senha))
             {
+                registrar_login(nome, cliente_fd);
                 send(cliente_fd, "LOGIN_OK\n", 9, 0);
             }
             else
@@ -206,7 +216,19 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
             send(cliente_fd, "LOGIN_FAIL\n", 11, 0);
         }
     }
-
+    else if (strncmp(mensagem, "LOGOUT", 6) == 0)
+    {
+        registrar_logout(cliente_fd);
+        send(cliente_fd, "LOGOUT_OK\n", 10, 0);
+    }
+    else if (strncmp(mensagem, "INFO", 4) == 0)
+    {
+        const char *user = usuario_por_socket(cliente_fd);
+        if (user)
+            dprintf(cliente_fd, "Você está logado como: %s\n", user);
+        else
+            send(cliente_fd, "Você não está logado.\n", 23, 0);
+    }
     else
     {
         char resposta[] = "Comando não reconhecido\n";

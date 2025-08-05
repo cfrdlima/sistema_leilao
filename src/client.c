@@ -52,7 +52,7 @@ int conectar_ao_servidor(const char *ip, int porta)
         exit(EXIT_FAILURE);
     }
 
-    printf("Conectado ao servidor %s:%d\n", ip, porta);
+    printf("Conectado ao servidor %s:%d, aperte enter!\n", ip, porta);
     return sock;
 }
 
