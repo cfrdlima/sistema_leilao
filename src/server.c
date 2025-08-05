@@ -7,6 +7,7 @@
 */
 
 #include "../headers/server.h"
+#include "../headers/users.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,6 +185,28 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
         char resposta[] = "PONG\n";
         send(cliente_fd, resposta, strlen(resposta), 0);
     }
+    else if (strncmp(mensagem, "LOGIN ", 6) == 0)
+    {
+        char nome[50], senha[50];
+
+        // Separar nome e senha
+        if (sscanf(mensagem + 6, "%s %s", nome, senha) == 2)
+        {
+            if (autenticar_usuario(nome, senha))
+            {
+                send(cliente_fd, "LOGIN_OK\n", 9, 0);
+            }
+            else
+            {
+                send(cliente_fd, "LOGIN_FAIL\n", 11, 0);
+            }
+        }
+        else
+        {
+            send(cliente_fd, "LOGIN_FAIL\n", 11, 0);
+        }
+    }
+
     else
     {
         char resposta[] = "Comando não reconhecido\n";
