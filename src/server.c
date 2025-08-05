@@ -7,6 +7,7 @@
 */
 
 #include "../headers/server.h"
+#include "../headers/auction.h"
 #include "../headers/users.h"
 
 #include <stdio.h>
@@ -35,6 +36,13 @@ int clientes[MAX_CLIENTES] = {0};
 void iniciar_servidor()
 {
     inicializar_usuarios();
+    Item item;
+    strcpy(item.nome_item, "Notebook_Dell");
+    item.lance_minimo = 1000.0;
+    item.tempo_duracao = 30;
+
+    inicializar_leilao(item);
+
     int servidor_fd;
     struct sockaddr_in endereco;
 
@@ -140,7 +148,8 @@ void tratar_conexoes(int servidor_fd)
                 "Comandos disponíveis:\n"
                 "  - LOGIN <nome> <senha>\n"
                 "  - INFO\n"
-                "  - LOGOUT\n\n";
+                "  - LOGOUT\n"
+                "  - ENTRAR_LEILAO\n\n";
             send(novo_socket, boas_vindas, strlen(boas_vindas), 0);
 
             // Adicionar cliente à lista
@@ -228,6 +237,30 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
             dprintf(cliente_fd, "Você está logado como: %s\n", user);
         else
             send(cliente_fd, "Você não está logado.\n", 23, 0);
+    }
+    else if (strncmp(mensagem, "ENTRAR_LEILAO", 13) == 0)
+    {
+        const char *usuario = usuario_por_socket(cliente_fd);
+        if (!usuario)
+        {
+            send(cliente_fd, "Você precisa estar logado para entrar no leilão.\n", 49, 0);
+        }
+        else
+        {
+            if (adicionar_participante(usuario, cliente_fd))
+            {
+                send(cliente_fd, "Você entrou no leilão.\n", 24, 0);
+
+                if (total_participantes() >= 2)
+                {
+                    enviar_inicio_leilao();
+                }
+            }
+            else
+            {
+                send(cliente_fd, "Erro ao entrar no leilão.\n", 27, 0);
+            }
+        }
     }
     else
     {
