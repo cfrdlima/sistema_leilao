@@ -7,6 +7,7 @@
 */
 
 #include "../headers/server.h"
+#include "../headers/users.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,8 +21,20 @@
 // Array de clientes
 int clientes[MAX_CLIENTES] = {0};
 
+/**
+ * Inicializa o servidor, criando o socket, fazendo bind em uma porta
+ * e começando a ouvir conexões.
+ *
+ * Se houver algum erro na criação do socket, bind ou listen, fecha o
+ * socket e sai do programa com um código de erro.
+ *
+ * Caso contrário, imprime uma mensagem informando que o servidor está
+ * ouvindo na porta e chama a função tratar_conexoes() para lidar com
+ * as conexões.
+ */
 void iniciar_servidor()
 {
+    inicializar_usuarios();
     int servidor_fd;
     struct sockaddr_in endereco;
 
@@ -59,6 +72,22 @@ void iniciar_servidor()
     tratar_conexoes(servidor_fd);
 }
 
+/**
+ * @brief Trata as conexões com os clientes.
+ *
+ * @param servidor_fd O file descriptor do socket do servidor.
+ *
+ * @details
+ * Esta função é responsável por tratar as conexões com os clientes. Ela executa um loop
+ * principal que:
+ * - Adiciona o socket do servidor ao conjunto de leitura.
+ * - Adiciona os clientes existentes ao conjunto de leitura.
+ * - Espera por atividade com select.
+ * - Trata novas conexões recebidas.
+ * - Trata mensagens recebidas dos clientes.
+ *
+ * A função também fecha conexões fechadas pelos clientes.
+ */
 void tratar_conexoes(int servidor_fd)
 {
     int max_sd, atividade;
@@ -105,7 +134,16 @@ void tratar_conexoes(int servidor_fd)
 
             printf("Novo cliente conectado: socket %d\n", novo_socket);
 
-            // Adicionar cliente ao array
+            // Enviar mensagem de boas-vindas
+            char boas_vindas[] =
+                "Bem-vindo ao sistema de leilão!\n"
+                "Comandos disponíveis:\n"
+                "  - LOGIN <nome> <senha>\n"
+                "  - INFO\n"
+                "  - LOGOUT\n\n";
+            send(novo_socket, boas_vindas, strlen(boas_vindas), 0);
+
+            // Adicionar cliente à lista
             for (int i = 0; i < MAX_CLIENTES; i++)
             {
                 if (clientes[i] == 0)
@@ -126,6 +164,7 @@ void tratar_conexoes(int servidor_fd)
                 if (valread == 0)
                 {
                     printf("Cliente %d desconectado\n", sd);
+                    registrar_logout(sd);
                     close(sd);
                     clientes[i] = 0;
                 }
@@ -140,6 +179,15 @@ void tratar_conexoes(int servidor_fd)
     }
 }
 
+/**
+ * Lida com mensagens recebidas de um cliente.
+ *
+ * Implementa lógica de resposta simples: se a mensagem for "PING", responde com "PONG".
+ * Se a mensagem for desconhecida, responde com "Comando não reconhecido".
+ *
+ * @param cliente_fd Descritor do socket do cliente que enviou a mensagem.
+ * @param mensagem A mensagem recebida do cliente.
+ */
 void lidar_com_mensagem(int cliente_fd, char *mensagem)
 {
     // Lógica inicial de resposta simples
@@ -147,6 +195,39 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
     {
         char resposta[] = "PONG\n";
         send(cliente_fd, resposta, strlen(resposta), 0);
+    }
+    else if (strncmp(mensagem, "LOGIN ", 6) == 0)
+    {
+        char nome[50], senha[50];
+        if (sscanf(mensagem + 6, "%s %s", nome, senha) == 2)
+        {
+            if (autenticar_usuario(nome, senha))
+            {
+                registrar_login(nome, cliente_fd);
+                send(cliente_fd, "LOGIN_OK\n", 9, 0);
+            }
+            else
+            {
+                send(cliente_fd, "LOGIN_FAIL\n", 11, 0);
+            }
+        }
+        else
+        {
+            send(cliente_fd, "LOGIN_FAIL\n", 11, 0);
+        }
+    }
+    else if (strncmp(mensagem, "LOGOUT", 6) == 0)
+    {
+        registrar_logout(cliente_fd);
+        send(cliente_fd, "LOGOUT_OK\n", 10, 0);
+    }
+    else if (strncmp(mensagem, "INFO", 4) == 0)
+    {
+        const char *user = usuario_por_socket(cliente_fd);
+        if (user)
+            dprintf(cliente_fd, "Você está logado como: %s\n", user);
+        else
+            send(cliente_fd, "Você não está logado.\n", 23, 0);
     }
     else
     {
