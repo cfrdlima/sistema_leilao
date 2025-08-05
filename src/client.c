@@ -16,6 +16,16 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+/**
+ * Conecta ao servidor com o endereço IP e porta informados.
+ *
+ * @param ip O endereço IP do servidor.
+ * @param porta A porta do servidor.
+ *
+ * @returns O file descriptor do socket criado.
+ *
+ * @note Se houver algum erro na cria o do socket, bind ou conex o, fecha o socket e sai do programa com um c digo de erro.
+ */
 int conectar_ao_servidor(const char *ip, int porta)
 {
     int sock;
@@ -45,6 +55,21 @@ int conectar_ao_servidor(const char *ip, int porta)
     printf("Conectado ao servidor %s:%d\n", ip, porta);
     return sock;
 }
+
+/**
+ * Executa o loop principal do cliente para comunicação com o servidor.
+ *
+ * @param socket_fd O descritor de arquivo do socket conectado ao servidor.
+ *
+ * @details
+ * Este loop permite ao cliente enviar mensagens digitadas pelo usuário para o servidor
+ * e receber respostas. O loop continua até que o usuário interrompa a execução ou
+ * a conexão com o servidor seja encerrada.
+ *
+ * - Captura a entrada do usuário e envia a mensagem para o servidor.
+ * - Lê as respostas do servidor e as exibe no terminal.
+ * - Encerra a conexão se o servidor fechar ou se houver erro na leitura.
+ */
 
 void loop_cliente(int socket_fd)
 {

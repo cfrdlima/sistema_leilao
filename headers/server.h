@@ -3,8 +3,6 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include <netinet/in.h> // struct sockaddr_in
-
 // Constantes
 #define PORTA 8080
 #define MAX_CLIENTES 10

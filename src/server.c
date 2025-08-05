@@ -20,6 +20,17 @@
 // Array de clientes
 int clientes[MAX_CLIENTES] = {0};
 
+/**
+ * Inicializa o servidor, criando o socket, fazendo bind em uma porta
+ * e começando a ouvir conexões.
+ *
+ * Se houver algum erro na criação do socket, bind ou listen, fecha o
+ * socket e sai do programa com um código de erro.
+ *
+ * Caso contrário, imprime uma mensagem informando que o servidor está
+ * ouvindo na porta e chama a função tratar_conexoes() para lidar com
+ * as conexões.
+ */
 void iniciar_servidor()
 {
     int servidor_fd;
@@ -59,6 +70,22 @@ void iniciar_servidor()
     tratar_conexoes(servidor_fd);
 }
 
+/**
+ * @brief Trata as conexões com os clientes.
+ *
+ * @param servidor_fd O file descriptor do socket do servidor.
+ *
+ * @details
+ * Esta função é responsável por tratar as conexões com os clientes. Ela executa um loop
+ * principal que:
+ * - Adiciona o socket do servidor ao conjunto de leitura.
+ * - Adiciona os clientes existentes ao conjunto de leitura.
+ * - Espera por atividade com select.
+ * - Trata novas conexões recebidas.
+ * - Trata mensagens recebidas dos clientes.
+ *
+ * A função também fecha conexões fechadas pelos clientes.
+ */
 void tratar_conexoes(int servidor_fd)
 {
     int max_sd, atividade;
@@ -140,6 +167,15 @@ void tratar_conexoes(int servidor_fd)
     }
 }
 
+/**
+ * Lida com mensagens recebidas de um cliente.
+ *
+ * Implementa lógica de resposta simples: se a mensagem for "PING", responde com "PONG".
+ * Se a mensagem for desconhecida, responde com "Comando não reconhecido".
+ *
+ * @param cliente_fd Descritor do socket do cliente que enviou a mensagem.
+ * @param mensagem A mensagem recebida do cliente.
+ */
 void lidar_com_mensagem(int cliente_fd, char *mensagem)
 {
     // Lógica inicial de resposta simples
