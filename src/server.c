@@ -200,7 +200,11 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
         char nome[50], senha[50];
         if (sscanf(mensagem + 6, "%s %s", nome, senha) == 2)
         {
-            if (autenticar_usuario(nome, senha))
+            if (esta_logado(cliente_fd))
+            {
+                send(cliente_fd, "Você já está logado.\n", 23, 0);
+            }
+            else if (autenticar_usuario(nome, senha))
             {
                 registrar_login(nome, cliente_fd);
                 send(cliente_fd, "LOGIN_OK\n", 9, 0);
