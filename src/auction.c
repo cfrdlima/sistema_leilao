@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <time.h>
 
 static int participantes_fd[MAX_PARTICIPANTES];
 static char participantes_nome[MAX_PARTICIPANTES][50];
@@ -20,6 +21,8 @@ static Item item_atual;
 static float maior_lance = 0;
 static char vencedor[50] = "";
 static int ativo = 0;
+static time_t tempo_inicio;
+static int encerrado = 0;
 
 void inicializar_leilao(Item item)
 {
@@ -28,6 +31,8 @@ void inicializar_leilao(Item item)
     maior_lance = item.lance_minimo;
     strcpy(vencedor, "Ninguém");
     ativo = 1;
+    encerrado = 0;
+    tempo_inicio = time(NULL);
 }
 
 int adicionar_participante(const char *usuario, int socket_fd)
@@ -105,4 +110,47 @@ int get_participante_fd(int i)
 int get_total_participantes()
 {
     return num_participantes;
+}
+
+void atualizar_leilao()
+{
+    if (!ativo || encerrado)
+        return;
+
+    time_t agora = time(NULL);
+    double elapsed = difftime(agora, tempo_inicio);
+
+    if (elapsed >= item_atual.tempo_duracao)
+    {
+        encerrar_leilao();
+    }
+}
+
+void encerrar_leilao()
+{
+    ativo = 0;
+    encerrado = 1;
+
+    char fim[100];
+    snprintf(fim, sizeof(fim),
+             "LEILAO_FIM %s %.2f\n",
+             vencedor,
+             maior_lance);
+
+    for (int i = 0; i < num_participantes; i++)
+    {
+        send(participantes_fd[i], fim, strlen(fim), 0);
+    }
+
+    printf("Leilão encerrado. Vencedor: %s (%.2f)\n", vencedor, maior_lance);
+
+    // Limpa estado
+    num_participantes = 0;
+    maior_lance = 0;
+    vencedor[0] = '\0';
+}
+
+int leilao_foi_encerrado()
+{
+    return encerrado;
 }

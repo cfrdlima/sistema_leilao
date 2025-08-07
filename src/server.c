@@ -39,7 +39,7 @@ void iniciar_servidor()
     Item item;
     strcpy(item.nome_item, "Notebook_Dell");
     item.lance_minimo = 1000.0;
-    item.tempo_duracao = 30;
+    item.tempo_duracao = 10;
 
     inicializar_leilao(item);
 
@@ -123,6 +123,7 @@ void tratar_conexoes(int servidor_fd)
         }
 
         // Esperar por atividade
+        atualizar_leilao();
         atividade = select(max_sd + 1, &conjunto_leitura, NULL, NULL, NULL);
         if ((atividade < 0) && (errno != EINTR))
         {

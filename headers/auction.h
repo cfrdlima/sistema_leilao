@@ -20,5 +20,8 @@ const char *obter_vencedor();
 int leilao_ativo();
 int get_participante_fd(int i);
 int get_total_participantes();
+void atualizar_leilao();
+void encerrar_leilao();
+int leilao_foi_encerrado();
 
 #endif
