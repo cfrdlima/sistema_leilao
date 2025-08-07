@@ -255,6 +255,47 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
             }
         }
     }
+    else if (strncmp(mensagem, "LANCE ", 6) == 0)
+    {
+        const char *usuario = usuario_por_socket(cliente_fd);
+        if (!usuario)
+        {
+            send(cliente_fd, "Você precisa estar logado.\n", 28, 0);
+        }
+        else if (!leilao_ativo())
+        {
+            send(cliente_fd, "Nenhum leilão ativo no momento.\n", 33, 0);
+        }
+        else
+        {
+            float valor;
+            if (sscanf(mensagem + 6, "%f", &valor) == 1)
+            {
+                int resultado = registrar_lance(usuario, valor);
+                if (resultado == 1)
+                {
+                    // Lance aceito: broadcast para participantes
+                    char aviso[100];
+                    snprintf(aviso, sizeof(aviso), "NOVO_LANCE %s %.2f\n", usuario, valor);
+
+                    for (int i = 0; i < get_total_participantes(); i++)
+                    {
+                        int fd = get_participante_fd(i);
+                        if (fd != -1)
+                            send(fd, aviso, strlen(aviso), 0);
+                    }
+                }
+                else if (resultado == 0)
+                {
+                    send(cliente_fd, "LANCE_REJEITADO\n", 17, 0);
+                }
+            }
+            else
+            {
+                send(cliente_fd, "Formato inválido. Use: LANCE <valor>\n", 38, 0);
+            }
+        }
+    }
     else
     {
         char resposta[] = "Comando não reconhecido\n";

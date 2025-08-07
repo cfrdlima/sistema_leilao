@@ -14,5 +14,11 @@ void inicializar_leilao(Item item);
 int adicionar_participante(const char *usuario, int socket_fd);
 int total_participantes();
 void enviar_inicio_leilao();
+int registrar_lance(const char *usuario, float valor);
+float obter_maior_lance();
+const char *obter_vencedor();
+int leilao_ativo();
+int get_participante_fd(int i);
+int get_total_participantes();
 
 #endif
