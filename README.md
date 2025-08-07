@@ -142,3 +142,4 @@ Remove os binários gerados.
 ## 👨‍💻 Autor
 
 Desenvolvido como trabalho final da disciplina de Redes de Computadores — 2025/1.
+Alunos: Claudinei de Lima, Kalani Sosa, Yuri Nunes.
