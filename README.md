@@ -1,65 +1,43 @@
-# 🛠️ Sistema de Leilão — Cliente/Servidor em C
+# Sistema de Leilão em C (Cliente-Servidor TCP)
 
-Este projeto implementa a base de um **sistema de leilão** usando **Sockets TCP em C**, com arquitetura **cliente-servidor**.
-
----
-
-## 📚 Descrição
-
-A comunicação entre cliente e servidor é feita via socket TCP. Por enquanto, o sistema responde ao comando `PING`, retornando `PONG`, para validar a conexão entre cliente e servidor.
-
-Em breve, o sistema será expandido para incluir:
-
-- Autenticação
-- Controle de lances
-- Leilões com tempo
-- Broadcast de mensagens
+Este projeto implementa um sistema de leilão online usando sockets TCP na linguagem C. Clientes podem se autenticar, entrar em uma sala de leilão, fazer lances e visualizar os resultados. O leilão é gerenciado por um servidor central que permite múltiplos clientes simultâneos.
 
 ---
 
-## 🗂️ Estrutura de diretórios
+## 🧱 Estrutura do Projeto
 
 ```
-.
-├── headers/
-│   ├── client.h
-│   └── server.h
-├── src/
-│   ├── client.c
-│   └── server.c
-├── main_client.c
-├── main_server.c
-├── makefile
-└── README.md
+sistema_leilao/
+├── headers/            # Arquivos .h (interface dos módulos)
+│   ├── server.h
+│   ├── auction.h
+│   ├── users.h
+│   └── ...
+├── src/                # Implementação dos módulos
+│   ├── server.c
+│   ├── auction.c
+│   ├── users.c
+│   └── ...
+├── main_server.c       # Inicialização do servidor
+├── main_client.c       # Inicialização do cliente
+├── makefile            # Compilação automática
+└── README.md           # Instruções
 ```
 
 ---
 
 ## ⚙️ Compilação
 
-### Compilar tudo (cliente e servidor):
+No diretório raiz do projeto:
 
 ```bash
 make
 ```
 
-### Compilar apenas o servidor:
+Isso gerará dois executáveis:
 
-```bash
-make server
-```
-
-### Compilar apenas o cliente:
-
-```bash
-make cliente
-```
-
-### Limpar os binários:
-
-```bash
-make clean
-```
+- `./server` → servidor de leilão
+- `./client` → cliente participante
 
 ---
 
@@ -67,73 +45,98 @@ make clean
 
 ### 1. Iniciar o servidor
 
-Em um terminal:
-
 ```bash
 ./server
 ```
 
-Você verá:
+O servidor escutará na porta 8080 e aceitará múltiplos clientes.
 
-```
-Servidor ouvindo na porta 8080...
-```
-
-### 2. Iniciar o cliente
-
-Em outro terminal:
+### 2. Iniciar um cliente (em outro terminal ou máquina)
 
 ```bash
-./cliente
+./client
 ```
 
-Você verá:
+Você pode abrir quantos clientes quiser. Cada um representará um usuário distinto no leilão.
 
-```
-Conectado ao servidor 127.0.0.1:8080
->
+---
+
+## 💬 Comandos disponíveis (cliente → servidor)
+
+| Comando                   | Descrição                            |
+| ------------------------- | ------------------------------------ |
+| `LOGIN <usuario> <senha>` | Faz login no sistema                 |
+| `INFO`                    | Mostra o nome do usuário autenticado |
+| `LOGOUT`                  | Encerra a sessão atual               |
+| `ENTRAR_LEILAO`           | Entra no leilão                      |
+| `LANCE <valor>`           | Dá um lance (se estiver no leilão)   |
+| `PING`                    | Testa a conexão com o servidor       |
+
+---
+
+## 📡 Respostas do servidor
+
+| Resposta                                | Significado                      |
+| --------------------------------------- | -------------------------------- |
+| `LOGIN_OK` / `LOGIN_FAIL`               | Sucesso ou falha no login        |
+| `LEILAO_INICIO <item> <minimo> <tempo>` | Início do leilão                 |
+| `NOVO_LANCE <usuario> <valor>`          | Alguém deu um novo lance         |
+| `LEILAO_FIM <vencedor> <valor>`         | Resultado do leilão              |
+| `LANCE_REJEITADO`                       | Lance abaixo do valor atual      |
+| `Você já está logado.`                  | Proteção contra múltiplos logins |
+| `Você não está logado.`                 | Comando feito sem login          |
+| `PONG`                                  | Resposta ao `PING`               |
+
+---
+
+## 📋 Exemplo de uso (cliente)
+
+```bash
+LOGIN joao 123
+INFO
+ENTRAR_LEILAO
+LANCE 1500
+LOGOUT
 ```
 
 ---
 
-## 📡 Teste com `PING`
+## 👤 Usuários de teste
 
-No terminal do cliente, digite:
+Você pode autenticar com:
 
-```text
-PING
+- `joao 123`
+- `maria abc`
+- `ana 456`
+
+---
+
+## 🔁 Rodadas de leilão
+
+- Um leilão inicia automaticamente quando 2 clientes entram com `ENTRAR_LEILAO`
+- Após 30 segundos, o servidor encerra a rodada e envia `LEILAO_FIM`
+- Uma nova rodada pode começar com novos participantes
+
+---
+
+## 🛠 Requisitos técnicos
+
+- Sistema operacional: Linux
+- Compilador: `gcc`
+- Bibliotecas usadas: apenas padrão (`stdio.h`, `string.h`, `sys/socket.h`, `unistd.h`, etc.)
+
+---
+
+## 📦 Limpeza
+
+```bash
+make clean
 ```
 
-E o servidor irá responder:
-
-```text
-Servidor: PONG
-```
-
-✅ Isso confirma que a comunicação TCP entre cliente e servidor está funcionando.
+Remove os binários gerados.
 
 ---
 
-## ❌ Encerrando
+## 👨‍💻 Autor
 
-- Para sair do cliente: `Ctrl + D` ou `Ctrl + C`
-- Para parar o servidor: `Ctrl + C`
-
----
-
-## 🧪 Próximos passos (em desenvolvimento)
-
-- `LOGIN` / `LOGOUT`
-- `JOIN_AUCTION`, `BID valor`
-- Encerramento automático de leilão por tempo
-- Mensagens em JSON ou protocolo customizado
-- Multiplexação de clientes simultâneos
-
----
-
-## 👨‍💻 Desenvolvido por
-
-Grupo de 3 alunos – Trabalho final da disciplina **Redes de Computadores**  
-Universidade Federal de Pelotas – 2025/2
-
----
+Desenvolvido como trabalho final da disciplina de Redes de Computadores — 2025/1.

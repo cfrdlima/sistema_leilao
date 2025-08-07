@@ -6,7 +6,7 @@ CFLAGS = -Wall -Iheaders
 SRC_DIR = src
 HEADERS_DIR = headers
 
-SERVER_SRC = main_server.c src/server.c src/users.c
+SERVER_SRC = main_server.c src/server.c src/users.c src/auction.c
 CLIENT_SRC = main_client.c $(SRC_DIR)/client.c
 
 # Binários
