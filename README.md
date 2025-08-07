@@ -39,6 +39,8 @@ Isso gerará dois executáveis:
 - `./server` → servidor de leilão
 - `./client` → cliente participante
 
+CASO FOR EXECUTAR O SERVIDOR EM OUTRO COMPUTADOR, ATENTE-SE AO IP PARA CONECTAR. IP ESTA DEFINIDO COMO LOCALHOST POIS OS TESTES FORAM EXECUTADOS NA MESMA MAQUINA.
+
 ---
 
 ## 🚀 Execução
