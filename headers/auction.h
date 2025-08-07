@@ -23,5 +23,6 @@ int get_total_participantes();
 void atualizar_leilao();
 void encerrar_leilao();
 int leilao_foi_encerrado();
+int participante_ja_esta(const char *usuario);
 
 #endif

@@ -242,17 +242,36 @@ void lidar_com_mensagem(int cliente_fd, char *mensagem)
         }
         else
         {
-            if (adicionar_participante(usuario, cliente_fd))
+            if (participante_ja_esta(usuario))
             {
-                send(cliente_fd, "Você entrou no leilão, minimo de 2 participantes para iniciar.\n", 74, 0);
-                if (total_participantes() >= 2)
-                {
-                    enviar_inicio_leilao();
-                }
+                send(cliente_fd, "Você já está no leilão.\n", 26, 0);
             }
             else
             {
-                send(cliente_fd, "Erro ao entrar no leilão.\n", 27, 0);
+                // Se o último leilão terminou, iniciar um novo
+                if (leilao_foi_encerrado())
+                {
+                    Item item;
+                    strcpy(item.nome_item, "Smartphone_Samsung");
+                    item.lance_minimo = 1500.0;
+                    item.tempo_duracao = 30;
+                    inicializar_leilao(item);
+                    printf("Nova rodada de leilão iniciada.\n");
+                }
+
+                if (adicionar_participante(usuario, cliente_fd))
+                {
+                    send(cliente_fd, "Você entrou no leilão.\n", 24, 0);
+
+                    if (get_total_participantes() >= 2)
+                    {
+                        enviar_inicio_leilao();
+                    }
+                }
+                else
+                {
+                    send(cliente_fd, "Erro ao entrar no leilão.\n", 27, 0);
+                }
             }
         }
     }

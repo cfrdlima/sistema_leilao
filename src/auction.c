@@ -154,3 +154,13 @@ int leilao_foi_encerrado()
 {
     return encerrado;
 }
+
+int participante_ja_esta(const char *usuario)
+{
+    for (int i = 0; i < num_participantes; i++)
+    {
+        if (strcmp(participantes_nome[i], usuario) == 0)
+            return 1;
+    }
+    return 0;
+}
