@@ -1,5 +1,7 @@
 {
   "files.associations": {
-    "server.h": "c"
+    "server.h": "c",
+    "numbers": "c",
+    "auction.h": "c"
   }
 }
