@@ -1,11 +1,3 @@
-/*
-- Lógica do leilão no servidor
-- Iniciar novo leilão
-- Controlar tempo restante
-- Validar lances
-- Determinar vencedor
-*/
-
 #include "../headers/auction.h"
 
 #include <string.h>
@@ -13,16 +5,23 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <time.h>
+#include <stdbool.h>
 
 static int participantes_fd[MAX_PARTICIPANTES];
 static char participantes_nome[MAX_PARTICIPANTES][50];
 static int num_participantes = 0;
+
 static Item item_atual;
 static float maior_lance = 0;
 static char vencedor[50] = "";
 static int ativo = 0;
+
 static time_t tempo_inicio;
 static int encerrado = 0;
+
+static bool dole_uma_sent = false;
+static bool dole_duas_sent = false;
+static bool dole_tres_sent = false;
 
 /**
  * Inicializa um novo leilão com o item especificado.
@@ -37,12 +36,15 @@ static int encerrado = 0;
 void inicializar_leilao(Item item)
 {
     item_atual = item;
-    num_participantes = 0;
     maior_lance = item.lance_minimo;
     strcpy(vencedor, "Ninguém");
     ativo = 1;
     encerrado = 0;
     tempo_inicio = time(NULL);
+
+    dole_uma_sent = false;
+    dole_duas_sent = false;
+    dole_tres_sent = false;
 }
 
 /**
@@ -90,13 +92,14 @@ void enviar_inicio_leilao()
 {
     char msg[256];
     snprintf(msg, sizeof(msg),
-             "LEILAO_INICIO %s %.2f %d\n",
+             "INICIAR_LEILAO %s %.2f %d\n",
              item_atual.nome_item,
              item_atual.lance_minimo,
              item_atual.tempo_duracao);
 
     for (int i = 0; i < num_participantes; i++)
     {
+        printf("Enviado para o cliente %d: INICIAR_LEILAO\n", participantes_fd[i]);
         send(participantes_fd[i], msg, strlen(msg), 0);
     }
 
@@ -126,11 +129,34 @@ int registrar_lance(const char *usuario, float valor)
     {
         maior_lance = valor;
         strncpy(vencedor, usuario, sizeof(vencedor));
-        return 1; // aceito
+
+        time_t agora = time(NULL);
+        double elapsed = difftime(agora, tempo_inicio);
+        int tempo_restante = item_atual.tempo_duracao - (int)elapsed;
+
+        if (tempo_restante <= 10)
+        {
+            item_atual.tempo_duracao += 10;
+            
+            char aviso_tempo[100];
+            snprintf(aviso_tempo, sizeof(aviso_tempo), "LANCE_TEMPO_ESTENDIDO\n");
+            for (int i = 0; i < num_participantes; i++) {
+                send(participantes_fd[i], aviso_tempo, strlen(aviso_tempo), 0);
+            }
+            
+            tempo_restante = item_atual.tempo_duracao - (int)elapsed;
+            printf("Leilão estendido em 10 segundos. Tempo restante: %d segundos.\n", tempo_restante);
+
+            dole_uma_sent = false;
+            dole_duas_sent = false;
+            dole_tres_sent = false;
+        }
+
+        return 1;
     }
     else
     {
-        return 0; // rejeitado
+        return 0;
     }
 }
 
@@ -148,12 +174,44 @@ void atualizar_leilao()
 
     time_t agora = time(NULL);
     double elapsed = difftime(agora, tempo_inicio);
+    int tempo_restante = item_atual.tempo_duracao - (int)elapsed;
 
     if (elapsed >= item_atual.tempo_duracao)
     {
         encerrar_leilao();
+        return;
+    }
+
+    char msg[20];
+
+    // DOLE UMA 10 segundos
+    if (tempo_restante <= 10 && !dole_uma_sent) {
+        snprintf(msg, sizeof(msg), "LANCE_DOLE_UMA\n");
+        for (int i = 0; i < num_participantes; i++) {
+            send(participantes_fd[i], msg, strlen(msg), 0);
+        }
+        dole_uma_sent = true;
+    }
+
+    // DOLE DUAS 5 segundos
+    if (tempo_restante <= 5 && !dole_duas_sent) {
+        snprintf(msg, sizeof(msg), "LANCE_DOLE_DUAS\n");
+        for (int i = 0; i < num_participantes; i++) {
+            send(participantes_fd[i], msg, strlen(msg), 0);
+        }
+        dole_duas_sent = true;
+    }
+
+    // DOLE TRES 2 segundos
+    if (tempo_restante <= 2 && !dole_tres_sent) {
+        snprintf(msg, sizeof(msg), "LANCE_DOLE_TRES\n");
+        for (int i = 0; i < num_participantes; i++) {
+            send(participantes_fd[i], msg, strlen(msg), 0);
+        }
+        dole_tres_sent = true;
     }
 }
+
 
 /**
  * Encerra o leilão atual e notifica os participantes.
@@ -167,11 +225,17 @@ void encerrar_leilao()
     ativo = 0;
     encerrado = 1;
 
-    char fim[100];
-    snprintf(fim, sizeof(fim),
-             "LEILAO_FIM %s %.2f\n",
-             vencedor,
-             maior_lance);
+    char fim[512]; 
+
+    if (strcmp(vencedor, "Ninguém") == 0) {
+        snprintf(fim, sizeof(fim),
+                 "LEILAO_SEM_VENCEDOR\n");
+    } else {
+        snprintf(fim, sizeof(fim),
+                 "LEILAO_COM_VENCEDOR %s %.2f\n",
+                 vencedor,
+                 maior_lance);
+    }
 
     for (int i = 0; i < num_participantes; i++)
     {
@@ -180,7 +244,6 @@ void encerrar_leilao()
 
     printf("Leilão encerrado. Vencedor: %s (%.2f)\n", vencedor, maior_lance);
 
-    // Limpa estado
     num_participantes = 0;
     maior_lance = 0;
     vencedor[0] = '\0';

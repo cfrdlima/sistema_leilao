@@ -5,9 +5,12 @@
 
 typedef struct
 {
+    int id;
     char nome_item[100];
     float lance_minimo;
     int tempo_duracao; // segundos
+    int participantes; 
+    int finalizado;
 } Item;
 
 void inicializar_leilao(Item item);
