@@ -18,38 +18,62 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <sys/time.h>
 
 // Array de clientes
 int clientes[MAX_CLIENTES] = {0};
 
-/**
- * Inicializa o servidor, criando o socket, fazendo bind em uma porta
- * e começando a ouvir conexões.
- *
- * Se houver algum erro na criação do socket, bind ou listen, fecha o
- * socket e sai do programa com um código de erro.
- *
- * Caso contrário, imprime uma mensagem informando que o servidor está
- * ouvindo na porta e chama a função tratar_conexoes() para lidar com
- * as conexões.
- */
-void iniciar_servidor()
-{
-    inicializar_usuarios();
-    Item item;
-    strcpy(item.nome_item, "Notebook_Dell");
-    item.lance_minimo = 1000.0;
-    item.tempo_duracao = 10;
+#define MAX_ITENS 5
+Item leiloes_disponiveis[MAX_ITENS];
+static int leilao_pendente_id = -1;
 
-    inicializar_leilao(item);
+void inicializar_itens_leilao() {
+    // Item 1
+    leiloes_disponiveis[0].id = 0;
+    strcpy(leiloes_disponiveis[0].nome_item, "Playstation_5");
+    leiloes_disponiveis[0].lance_minimo = 2000.0;
+    leiloes_disponiveis[0].tempo_duracao = 60;
+    leiloes_disponiveis[0].finalizado = 0;
+
+    // Item 2
+    leiloes_disponiveis[1].id = 1;
+    strcpy(leiloes_disponiveis[1].nome_item, "Fone_de_Ouvido_Bluetooth");
+    leiloes_disponiveis[1].lance_minimo = 250.0;
+    leiloes_disponiveis[1].tempo_duracao = 60;
+    leiloes_disponiveis[1].finalizado = 0;
+
+    // Item 3
+    leiloes_disponiveis[2].id = 2;
+    strcpy(leiloes_disponiveis[2].nome_item, "Smartwatch");
+    leiloes_disponiveis[2].lance_minimo = 700.0;
+    leiloes_disponiveis[2].tempo_duracao = 60;
+    leiloes_disponiveis[2].finalizado = 0;
+
+    // Item 4
+    leiloes_disponiveis[3].id = 3;
+    strcpy(leiloes_disponiveis[3].nome_item, "Cadeira_Gamer");
+    leiloes_disponiveis[3].lance_minimo = 900.0;
+    leiloes_disponiveis[3].tempo_duracao = 60;
+    leiloes_disponiveis[3].finalizado = 0;
+
+    // Item 5
+    leiloes_disponiveis[4].id = 4;
+    strcpy(leiloes_disponiveis[4].nome_item, "Teclado_Mecanico");
+    leiloes_disponiveis[4].lance_minimo = 350.0;
+    leiloes_disponiveis[4].tempo_duracao = 60;
+    leiloes_disponiveis[4].finalizado = 0;
+}
+
+void iniciar_servidor() {
+    inicializar_usuarios();
+    inicializar_itens_leilao();
 
     int servidor_fd;
     struct sockaddr_in endereco;
 
     // Criar socket
     servidor_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (servidor_fd == 0)
-    {
+    if (servidor_fd == 0) {
         perror("Erro ao criar socket");
         exit(EXIT_FAILURE);
     }
@@ -59,16 +83,14 @@ void iniciar_servidor()
     endereco.sin_addr.s_addr = INADDR_ANY;
     endereco.sin_port = htons(PORTA);
 
-    if (bind(servidor_fd, (struct sockaddr *)&endereco, sizeof(endereco)) < 0)
-    {
+    if (bind(servidor_fd, (struct sockaddr *)&endereco, sizeof(endereco)) < 0) {
         perror("Erro no bind");
         close(servidor_fd);
         exit(EXIT_FAILURE);
     }
 
     // Listen
-    if (listen(servidor_fd, 3) < 0)
-    {
+    if (listen(servidor_fd, 3) < 0) {
         perror("Erro no listen");
         close(servidor_fd);
         exit(EXIT_FAILURE);
@@ -80,24 +102,7 @@ void iniciar_servidor()
     tratar_conexoes(servidor_fd);
 }
 
-/**
- * @brief Trata as conexões com os clientes.
- *
- * @param servidor_fd O file descriptor do socket do servidor.
- *
- * @details
- * Esta função é responsável por tratar as conexões com os clientes. Ela executa um loop
- * principal que:
- * - Adiciona o socket do servidor ao conjunto de leitura.
- * - Adiciona os clientes existentes ao conjunto de leitura.
- * - Espera por atividade com select.
- * - Trata novas conexões recebidas.
- * - Trata mensagens recebidas dos clientes.
- *
- * A função também fecha conexões fechadas pelos clientes.
- */
-void tratar_conexoes(int servidor_fd)
-{
+void tratar_conexoes(int servidor_fd) {
     int max_sd, atividade;
     int novo_socket;
     struct sockaddr_in endereco;
@@ -105,16 +110,15 @@ void tratar_conexoes(int servidor_fd)
     char buffer[TAM_BUFFER];
 
     fd_set conjunto_leitura;
+    struct timeval timeout;
 
-    while (1)
-    {
+    while (1) {
         FD_ZERO(&conjunto_leitura);
         FD_SET(servidor_fd, &conjunto_leitura);
         max_sd = servidor_fd;
 
         // Adicionar clientes existentes ao conjunto
-        for (int i = 0; i < MAX_CLIENTES; i++)
-        {
+        for (int i = 0; i < MAX_CLIENTES; i++) {
             int sd = clientes[i];
             if (sd > 0)
                 FD_SET(sd, &conjunto_leitura);
@@ -122,21 +126,23 @@ void tratar_conexoes(int servidor_fd)
                 max_sd = sd;
         }
 
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+
         // Esperar por atividade
         atualizar_leilao();
-        atividade = select(max_sd + 1, &conjunto_leitura, NULL, NULL, NULL);
-        if ((atividade < 0) && (errno != EINTR))
-        {
+
+        atividade = select(max_sd + 1, &conjunto_leitura, NULL, NULL, &timeout);
+
+        if ((atividade < 0) && (errno != EINTR)) {
             perror("Erro no select");
             continue;
         }
 
         // Nova conexão
-        if (FD_ISSET(servidor_fd, &conjunto_leitura))
-        {
+        if (FD_ISSET(servidor_fd, &conjunto_leitura)) {
             novo_socket = accept(servidor_fd, (struct sockaddr *)&endereco, &addrlen);
-            if (novo_socket < 0)
-            {
+            if (novo_socket < 0) {
                 perror("Erro no accept");
                 continue;
             }
@@ -144,10 +150,8 @@ void tratar_conexoes(int servidor_fd)
             printf("Novo cliente conectado: socket %d\n", novo_socket);
 
             // Adicionar cliente à lista
-            for (int i = 0; i < MAX_CLIENTES; i++)
-            {
-                if (clientes[i] == 0)
-                {
+            for (int i = 0; i < MAX_CLIENTES; i++) {
+                if (clientes[i] == 0) {
                     clientes[i] = novo_socket;
                     break;
                 }
@@ -155,23 +159,18 @@ void tratar_conexoes(int servidor_fd)
         }
 
         // Mensagens dos clientes
-        for (int i = 0; i < MAX_CLIENTES; i++)
-        {
+        for (int i = 0; i < MAX_CLIENTES; i++) {
             int sd = clientes[i];
-            if (FD_ISSET(sd, &conjunto_leitura))
-            {
+            if (FD_ISSET(sd, &conjunto_leitura)) {
                 int valread = read(sd, buffer, TAM_BUFFER);
-                if (valread == 0)
-                {
-                    printf("Cliente %d desconectado\n", sd);
+                if (valread == 0) {
+                    printf("\nCliente %d desconectado\n", sd);
                     registrar_logout(sd);
                     close(sd);
                     clientes[i] = 0;
-                }
-                else
-                {
+                } else {
                     buffer[valread] = '\0';
-                    printf("Recebido do cliente %d: %s\n", sd, buffer);
+                    printf("\nRecebido do cliente %d: %s", sd, buffer);
                     lidar_com_mensagem(sd, buffer);
                 }
             }
@@ -179,146 +178,180 @@ void tratar_conexoes(int servidor_fd)
     }
 }
 
-/**
- * Lida com mensagens recebidas de um cliente.
- *
- * Implementa lógica de resposta simples: se a mensagem for "PING", responde com "PONG".
- * Se a mensagem for desconhecida, responde com "Comando não reconhecido".
- *
- * @param cliente_fd Descritor do socket do cliente que enviou a mensagem.
- * @param mensagem A mensagem recebida do cliente.
- */
-void lidar_com_mensagem(int cliente_fd, char *mensagem)
-{
-    // Lógica inicial de resposta simples
-    if (strncmp(mensagem, "PING", 4) == 0)
-    {
+void lidar_com_mensagem(int cliente_fd, char *mensagem) {
+    if (strncmp(mensagem, "PING", 4) == 0) {
         char resposta[] = "PONG\n";
         send(cliente_fd, resposta, strlen(resposta), 0);
-    }
-    else if (strncmp(mensagem, "LOGIN ", 6) == 0)
-    {
+    } 
+    
+    // LOGIN
+    else if (strncmp(mensagem, "LOGIN ", 6) == 0) {
         char nome[50], senha[50];
-        if (sscanf(mensagem + 6, "%s %s", nome, senha) == 2)
-        {
-            if (esta_logado(cliente_fd))
-            {
-                send(cliente_fd, "Você já está logado.\n", 23, 0);
-            }
-            else if (autenticar_usuario(nome, senha))
-            {
+        if (sscanf(mensagem + 6, "%s %s", nome, senha) == 2) {
+            if (esta_logado(cliente_fd)) {
+                printf("Enviado para o cliente %d: LOGIN_DONE\n", cliente_fd);
+                send(cliente_fd, "LOGIN_DONE\n", 11, 0);
+            } else if (autenticar_usuario(nome, senha)) {
                 registrar_login(nome, cliente_fd);
+                printf("Enviado para o cliente %d: LOGIN_OK\n", cliente_fd);
                 send(cliente_fd, "LOGIN_OK\n", 9, 0);
-            }
-            else
-            {
+            } else {
+                printf("Enviado para o cliente %d: LOGIN_FAIL\n", cliente_fd);
                 send(cliente_fd, "LOGIN_FAIL\n", 11, 0);
             }
-        }
-        else
-        {
+        } else {   
+            printf("Enviado para o cliente %d: LOGIN_FAIL\n", cliente_fd);
             send(cliente_fd, "LOGIN_FAIL\n", 11, 0);
         }
-    }
-    else if (strncmp(mensagem, "LOGOUT", 6) == 0)
-    {
+
+    // LOGOUT
+    } else if (strncmp(mensagem, "LOGOUT", 6) == 0) {
         registrar_logout(cliente_fd);
+        printf("Enviado para o cliente %d: LOGOUT_OK\n", cliente_fd);
         send(cliente_fd, "LOGOUT_OK\n", 10, 0);
-    }
-    else if (strncmp(mensagem, "INFO", 4) == 0)
-    {
+
+    // INFO
+    } else if (strncmp(mensagem, "INFO", 4) == 0) {
         const char *user = usuario_por_socket(cliente_fd);
-        if (user)
-            dprintf(cliente_fd, "Você está logado como: %s\n", user);
-        else
-            send(cliente_fd, "Você não está logado.\n", 23, 0);
-    }
-    else if (strncmp(mensagem, "ENTRAR_LEILAO", 13) == 0)
-    {
-        const char *usuario = usuario_por_socket(cliente_fd);
-        if (!usuario)
-        {
-            send(cliente_fd, "Você precisa estar logado para entrar no leilão.\n", 49, 0);
+        char mensagem_para_enviar[256]; 
+        if (user) {
+            printf("Enviado para o cliente %d: INFO_OK %s\n", cliente_fd, user);
+            snprintf(mensagem_para_enviar, sizeof(mensagem_para_enviar), "INFO_OK %s\n", user);
+            send(cliente_fd, mensagem_para_enviar, strlen(mensagem_para_enviar), 0);
         }
-        else
-        {
-            if (participante_ja_esta(usuario))
-            {
-                send(cliente_fd, "Você já está no leilão.\n", 26, 0);
-            }
-            else
-            {
-                // Se o último leilão terminou, iniciar um novo
-                if (leilao_foi_encerrado())
-                {
-                    Item item;
-                    strcpy(item.nome_item, "Smartphone_Samsung");
-                    item.lance_minimo = 1500.0;
-                    item.tempo_duracao = 30;
-                    inicializar_leilao(item);
-                    printf("Nova rodada de leilão iniciada.\n");
-                }
+        else {
+            printf("Enviado para o cliente %d: INFO_FAIL\n", cliente_fd);
+            send(cliente_fd, "INFO_FAIL\n", 10, 0);
+        }
+    } 
+    
+    // Listar leiloes
+    else if (strncmp(mensagem, "LISTAR_LEILOES", 14) == 0) {
+        printf("Enviado para o cliente %d: INICIO_LISTA_LEILOES\n", cliente_fd);
+        send(cliente_fd, "INICIO_LISTA_LEILOES\n", 22, 0);
+        
+        for (int i = 0; i < MAX_ITENS; i++) {
+            if (!leiloes_disponiveis[i].finalizado) {
+                char item_info[200];
 
-                if (adicionar_participante(usuario, cliente_fd))
-                {
-                    send(cliente_fd, "Você entrou no leilão.\n", 24, 0);
-
-                    if (get_total_participantes() >= 2)
-                    {
-                        enviar_inicio_leilao();
-                    }
-                }
-                else
-                {
-                    send(cliente_fd, "Erro ao entrar no leilão.\n", 27, 0);
-                }
+                snprintf(item_info, sizeof(item_info), "ITEM_LEILAO %d %s %.2f\n",
+                    leiloes_disponiveis[i].id,
+                    leiloes_disponiveis[i].nome_item,
+                    leiloes_disponiveis[i].lance_minimo);
+                
+                printf("Enviado para o cliente %d: ITEM_LEILAO %d\n", cliente_fd, leiloes_disponiveis[i].id);
+                send(cliente_fd, item_info, strlen(item_info), 0);
             }
         }
+        
+        printf("Enviado para o cliente %d: FIM_LISTA_LEILOES\n", cliente_fd);
+        send(cliente_fd, "FIM_LISTA_LEILOES\n", 18, 0);
     }
-    else if (strncmp(mensagem, "LANCE ", 6) == 0)
-    {
+
+    // Entrar no leilao
+    else if (strncmp(mensagem, "ENTRAR_LEILAO ", 14) == 0) {
         const char *usuario = usuario_por_socket(cliente_fd);
-        if (!usuario)
-        {
-            send(cliente_fd, "Você precisa estar logado.\n", 28, 0);
+        if (!usuario) {
+            printf("Enviado para o cliente %d: PRECISA_LOGAR\n", cliente_fd);
+            send(cliente_fd, "PRECISA_LOGAR\n", 14, 0);
+            return;
         }
-        else if (!leilao_ativo())
-        {
-            send(cliente_fd, "Nenhum leilão ativo no momento.\n", 33, 0);
+
+        if (participante_ja_esta(usuario)) {
+            printf("Enviado para o cliente %d: USUARIO_JA_ESTA_NO_LEILAO\n", cliente_fd);
+            send(cliente_fd, "ENTRAR_JA_ESTA_NO_LEILAO\n", 25, 0);
+            return;
         }
-        else
-        {
+
+        int leilao_id;
+        if (sscanf(mensagem + 14, "%d", &leilao_id) != 1) {
+            printf("Enviado para o cliente %d: ENTRAR_FORMATO_FAIL\n", cliente_fd);
+            send(cliente_fd, "ENTRAR_FORMATO_FAIL\n", 20, 0);
+            return;
+        }
+
+        if (leilao_id < 0 || leilao_id >= MAX_ITENS || leiloes_disponiveis[leilao_id].finalizado) {
+            printf("Enviado para o cliente %d: ENTRAR_INDISPONIVEL\n", cliente_fd);
+            send(cliente_fd, "ENTRAR_INDISPONIVEL\n", 20, 0);
+            return;
+        }
+
+        if (get_total_participantes() == 0) {
+            leilao_pendente_id = leilao_id;
+        } else {
+            if (leilao_id != leilao_pendente_id) {
+                char aviso[100];
+                snprintf(aviso, sizeof(aviso), "ENTRAR_LEILAO_AGUARDANDO %d\n", leilao_pendente_id);
+                printf("Enviado para o cliente %d: ENTRAR_LEILAO_AGUARDANDO\n", cliente_fd);
+                send(cliente_fd, aviso, strlen(aviso), 0);
+                return;
+            }
+        }
+
+        if (adicionar_participante(usuario, cliente_fd)) {
+            if (get_total_participantes() >= 2) {
+                Item item_a_leiloar = leiloes_disponiveis[leilao_pendente_id];
+                leiloes_disponiveis[leilao_pendente_id].finalizado = 1;
+
+                inicializar_leilao(item_a_leiloar);
+                printf("Leilão do item '%s' (ID: %d) iniciado com %d participantes.\n", item_a_leiloar.nome_item, leilao_pendente_id, get_total_participantes());
+
+                enviar_inicio_leilao();
+                leilao_pendente_id = -1;
+            } else {
+                printf("Enviado para o cliente %d: ENTRAR_AGUARDE\n", cliente_fd);
+                send(cliente_fd, "ENTRAR_AGUARDE\n", 55, 0);
+            }
+        } 
+    } 
+    
+    // Lances
+    else if (strncmp(mensagem, "LANCE ", 6) == 0) {
+        const char *usuario = usuario_por_socket(cliente_fd);
+        if (!usuario) {
+            printf("Enviado para o cliente %d: PRECISA_LOGAR\n", cliente_fd);
+            send(cliente_fd, "PRECISA_LOGAR\n", 14, 0);
+            return;
+        } else if (!leilao_ativo()) {
+            printf("Enviado para o cliente %d: LANCE_NAO_ATIVO\n", cliente_fd);
+            send(cliente_fd, "LANCE_NAO_ATIVO\n", 16, 0);
+        } else {
             float valor;
             if (sscanf(mensagem + 6, "%f", &valor) == 1)
             {
                 int resultado = registrar_lance(usuario, valor);
                 if (resultado == 1)
                 {
-                    // Lance aceito: broadcast para participantes
                     char aviso[100];
-                    snprintf(aviso, sizeof(aviso), "NOVO_LANCE %s %.2f\n", usuario, valor);
+                    snprintf(aviso, sizeof(aviso), "LANCE_NOVO %s %.2f\n", usuario, valor);
 
                     for (int i = 0; i < get_total_participantes(); i++)
                     {
                         int fd = get_participante_fd(i);
-                        if (fd != -1)
+                        if (fd != -1) {
+                            printf("Enviado para o cliente %d: LANCE_NOVO\n", fd);
                             send(fd, aviso, strlen(aviso), 0);
+                        }
                     }
                 }
                 else if (resultado == 0)
                 {
+                    printf("Enviado para o cliente %d: LANCE_REJEITADO\n", cliente_fd);
                     send(cliente_fd, "LANCE_REJEITADO\n", 17, 0);
                 }
             }
             else
             {
-                send(cliente_fd, "Formato inválido. Use: LANCE <valor>\n", 38, 0);
+                printf("Enviado para o cliente %d: LANCE_FORMATO_FAIL\n", cliente_fd);
+                send(cliente_fd, "LANCE_FORMATO_FAIL\n", 19, 0);
             }
         }
     }
-    else
-    {
-        char resposta[] = "Comando não reconhecido\n";
+
+    // Comandos nao existentes
+    else {
+        char resposta[] = "COMANDO_FAIL\n";
+        printf("Enviado para o cliente %d: COMANDO_FAIL\n", cliente_fd);
         send(cliente_fd, resposta, strlen(resposta), 0);
     }
 }

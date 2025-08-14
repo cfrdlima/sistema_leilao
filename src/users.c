@@ -17,13 +17,16 @@ static int total_usuarios = 0;
  */
 void inicializar_usuarios()
 {
-    strcpy(usuarios[0].nome, "joao");
+    strcpy(usuarios[0].nome, "yuri");
     strcpy(usuarios[0].senha, "123");
 
-    strcpy(usuarios[1].nome, "maria");
-    strcpy(usuarios[1].senha, "abc");
+    strcpy(usuarios[1].nome, "kalani");
+    strcpy(usuarios[1].senha, "456");
 
-    total_usuarios = 2;
+    strcpy(usuarios[2].nome, "claudinei");
+    strcpy(usuarios[2].senha, "789");
+
+    total_usuarios = 3;
 
     for (int i = 0; i < MAX_USUARIOS; i++)
     {
